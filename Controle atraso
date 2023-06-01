@@ -1,0 +1,161 @@
+!pip install control;
+
+import numpy as np
+import control
+import matplotlib.pyplot as plt
+from IPython.utils.path import ensure_dir_exists
+import cmath
+from control import step_info, TransferFunction
+
+#A linha de código abaixo é a meta do projeto. 
+s_m = complex(-2,2.45)
+
+print('s1=',s1)
+
+s = control.tf('s')
+
+#planta
+#G = 16/(s*(s+4))
+#print('G(s) =',G)
+num=np.array([10])
+den=np.array([1,4,0])
+G=control.tf(num,den)
+print('G(s) =',G)
+
+#Malha Fechada sem compensação
+#MFscomp = (G/(1+G))
+MFscomp =control.feedback(G,sys2=1, sign=-1)
+print('MFscomp(s) =', MFscomp)
+
+#Polos e zeros do sistema sem compensação
+print("-----------------------------------------------")
+print("Polo e zero de falha fechada sem o compensador")
+Z1=control.zero(MFscomp) # Zero do sistema 
+P1=control.pole(MFscomp) # Polo do sistema
+print("Polo: \n>",P1)
+print("Zero: \n>",Z1)
+print("-----------------------------------------------")
+
+#Mapa de polos e zeros do sistema sem compensação
+plt.figure(1)
+control.pzmap(MFscomp, plot = True, grid = True)
+
+
+#Parâmetros do compensador de avanço
+num1=np.array([1.02,0.102])
+den1=np.array([1,0.005])
+
+#Funçaõ do compensador de avanço
+Gc=control.tf(num1,den1)
+
+print('\nGc(s) =',Gc)
+
+#Malha Fechada com compensação
+Gs=control.series(G,Gc)
+
+MFcomp = control.feedback(Gs,sys2=1, sign=-1)
+print('MFcomp(s) =', MFcomp)
+
+#Polos e zeros do sistema com compensação
+polos = control.pole(MFcomp)
+print('polos =', polos)
+zeros = control.zero(MFcomp)
+print('zeros =', zeros)
+
+#Mapa de polos e zeros do sistema com compensação
+plt.figure(2)
+control.pzmap(MFcomp, plot = True, grid = True)
+
+#Definição do zero e do polo do compensador
+#Resposta ao degrau unitário
+plt.figure(3)
+t,y=control.step_response(MFscomp,15)
+tref, yref = control.step_response(s/s,15)
+t1,y1 = control.step_response(MFcomp,15)
+plt.plot(t,y,tref,yref,t1,y1)
+plt.title('Resposta ao degrau')
+plt.legend(["Sem compensador","Referência","Com compensador"]) 
+plt.xlabel('tempo [s]')
+plt.ylabel('Amplitude')
+plt.grid(True)
+#plt.axis([-1, 15, 0, 1.4])
+
+#Resposta ao degrau unitário
+'''plt.figure(4)
+t1,y1 = control.step_response(MFcomp)
+plt.plot(t1,y1,tref,yref)
+plt.title('Resposta ao degrau - Com compensação!')
+plt.xlabel('tempo [s]')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.axis([-1, 5, 0, 1.4]);'''
+
+#Resposta a rampa 
+plt.figure(4)
+t,y = control.step_response((1/s)*MFscomp)
+tref, yref = control.step_response((1/s))
+t1,y1 = control.step_response((1/s)*MFcomp)
+plt.plot(t,y,tref, yref,t1,y1)
+plt.title('Resposta a rampa')
+plt.xlabel('tempo [s]')
+plt.ylabel('Amplitude')
+plt.legend(["Sem compensador","Referência","Com compensador"]) 
+plt.grid(True)
+plt.axis([10, 16, 10, 16])
+
+
+'''#Resposta a rampa com compensação
+plt.figure(6)
+t1,y1 = control.step_response((1/s)*MFcomp)
+plt.plot(t1,y1, tref, yref)
+plt.title('Resposta a rampa - Com compensação!')
+plt.xlabel('tempo [s]')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.axis([15, 16, 15, 16]);'''
+
+#Achando o tempo de subida, tempo de acomodação, sobressinal e etc.
+#s =control.step_info(H)
+#print(s)
+
+
+# calculo do tempo de pico
+peak_time=t[np.argmax(y)]
+#print(peak_time)
+
+#calculo do sobressinal 
+Overshoot=(y.max()/y[-1]-1)*100
+#print(Overshoot)
+
+#calculo do tempo de subida 
+for i in range(0,len(y)-1):
+  if (y[i]>y[-1]*.10):
+    i_10=i
+    break
+for i in range(0,len(y)-1):
+  if (y[i]>y[-1]*.90):
+    i_90=i
+    break
+Rise_Time=(t[i_90]-t[i_10])
+#print(Rise_Time)
+
+
+#calculo do tempo de acomodação 
+
+for i in range(2,len(y)-1):
+  if(abs(y[-i]/y[-1])>1.02) or (abs(y[-i]/y[-1])<0.98):
+    qts=i+1
+    break
+Settling_Time=(t[len(y)-qts])
+#print(Settling_Time)
+
+
+#interface do programa com usuario
+print("-------------------------------------------------")
+print("Característica de malha fechada com o compensador")
+print("Tempo de pico: ",peak_time,' [s]')
+print("Sobressinal: ",Overshoot,' %')
+print("Tempo de subida: ",Rise_Time,' [s]')
+print("Tempo de acomodação: ",Settling_Time,' [s]')
+print("-------------------------------------------------")
+
